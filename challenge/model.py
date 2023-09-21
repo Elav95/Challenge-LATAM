@@ -116,6 +116,7 @@ class DelayModel:
         # Train the model using the features and target data
         self._model = xgb.XGBClassifier(random_state=1, learning_rate=0.01)
         self._model.fit(features, target)
+        return
 
     def predict(
         self,
