@@ -131,4 +131,6 @@ class DelayModel:
         Returns:
             (List[int]): predicted targets.
         """
-        return
+        # Use the trained model to make predictions
+        predictions = self._model.predict(features)
+        return predictions
