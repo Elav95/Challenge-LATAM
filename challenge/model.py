@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import xgboost as xgb
 from typing import Tuple, Union, List
 from datetime import datetime
 
@@ -112,6 +113,9 @@ class DelayModel:
             features (pd.DataFrame): preprocessed data.
             target (pd.DataFrame): target.
         """
+        # Train the model using the features and target data
+        self._model = xgb.XGBClassifier(random_state=1, learning_rate=0.01)
+        self._model.fit(features, target)
         return
 
     def predict(
