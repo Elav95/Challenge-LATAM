@@ -15,7 +15,7 @@ class DelayModel:
         self,
         data: pd.DataFrame,
         target_column: str = None
-    ) -> Union(Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame):
+    ) -> Union[Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame]:
         """
         Prepare raw data for training or predict.
 
@@ -28,16 +28,9 @@ class DelayModel:
             or
             pd.DataFrame: features.
         """
-        # Extract relevant columns for feature engineering
-        data['Fecha-I'] = pd.to_datetime(data['Fecha-I'])
-        data['Fecha-O'] = pd.to_datetime(data['Fecha-O'])
-        data['DIA'] = data['Fecha-I'].dt.day
-        data['MES'] = data['Fecha-I'].dt.month
-        data['DIANOM'] = data['Fecha-I'].dt.day_name()
-        
         # Define a function to get the period of the day
         def get_period_day(date):
-            date_time = date.time()
+            date_time = datetime.strptime(date, '%Y-%m-%d %H:%M:%S').time()
             morning_min = datetime.strptime("05:00", '%H:%M').time()
             morning_max = datetime.strptime("11:59", '%H:%M').time()
             afternoon_min = datetime.strptime("12:00", '%H:%M').time()
@@ -46,13 +39,15 @@ class DelayModel:
             evening_max = datetime.strptime("23:59", '%H:%M').time()
             night_min = datetime.strptime("00:00", '%H:%M').time()
             night_max = datetime.strptime("4:59", '%H:%M').time()
-
-            if (date_time > morning_min and date_time < morning_max):
+            
+            if(date_time > morning_min and date_time < morning_max):
                 return 'mañana'
-            elif (date_time > afternoon_min and date_time < afternoon_max):
+            elif(date_time > afternoon_min and date_time < afternoon_max):
                 return 'tarde'
-            elif ((date_time > evening_min and date_time < evening_max) or
-                  (date_time > night_min and date_time < night_max)):
+            elif(
+                (date_time > evening_min and date_time < evening_max) or
+                (date_time > night_min and date_time < night_max)
+            ):
                 return 'noche'
         
         data['period_day'] = data['Fecha-I'].apply(get_period_day)
@@ -61,17 +56,17 @@ class DelayModel:
         def is_high_season(fecha):
             fecha_año = int(fecha.split('-')[0])
             fecha = datetime.strptime(fecha, '%Y-%m-%d %H:%M:%S')
-            range1_min = datetime.strptime('15-Dec', '%d-%b').replace(year=fecha_año)
-            range1_max = datetime.strptime('31-Dec', '%d-%b').replace(year=fecha_año)
-            range2_min = datetime.strptime('1-Jan', '%d-%b').replace(year=fecha_año)
-            range2_max = datetime.strptime('3-Mar', '%d-%b').replace(year=fecha_año)
-            range3_min = datetime.strptime('15-Jul', '%d-%b').replace(year=fecha_año)
-            range3_max = datetime.strptime('31-Jul', '%d-%b').replace(year=fecha_año)
-            range4_min = datetime.strptime('11-Sep', '%d-%b').replace(year=fecha_año)
-            range4_max = datetime.strptime('30-Sep', '%d-%b').replace(year=fecha_año)
-
-            if ((fecha >= range1_min and fecha <= range1_max) or
-                (fecha >= range2_min and fecha <= range2_max) or
+            range1_min = datetime.strptime('15-Dec', '%d-%b').replace(year = fecha_año)
+            range1_max = datetime.strptime('31-Dec', '%d-%b').replace(year = fecha_año)
+            range2_min = datetime.strptime('1-Jan', '%d-%b').replace(year = fecha_año)
+            range2_max = datetime.strptime('3-Mar', '%d-%b').replace(year = fecha_año)
+            range3_min = datetime.strptime('15-Jul', '%d-%b').replace(year = fecha_año)
+            range3_max = datetime.strptime('31-Jul', '%d-%b').replace(year = fecha_año)
+            range4_min = datetime.strptime('11-Sep', '%d-%b').replace(year = fecha_año)
+            range4_max = datetime.strptime('30-Sep', '%d-%b').replace(year = fecha_año)
+            
+            if ((fecha >= range1_min and fecha <= range1_max) or 
+                (fecha >= range2_min and fecha <= range2_max) or 
                 (fecha >= range3_min and fecha <= range3_max) or
                 (fecha >= range4_min and fecha <= range4_max)):
                 return 1
@@ -84,21 +79,46 @@ class DelayModel:
         def get_min_diff(data):
             fecha_o = datetime.strptime(data['Fecha-O'], '%Y-%m-%d %H:%M:%S')
             fecha_i = datetime.strptime(data['Fecha-I'], '%Y-%m-%d %H:%M:%S')
-            min_diff = ((fecha_o - fecha_i).total_seconds()) / 60
+            min_diff = ((fecha_o - fecha_i).total_seconds())/60
             return min_diff
 
-        data['min_diff'] = data.apply(get_min_diff, axis=1)
+        data['min_diff'] = data.apply(get_min_diff, axis = 1)
         
         # Define a threshold for delay
         threshold_in_minutes = 15
         data['delay'] = np.where(data['min_diff'] > threshold_in_minutes, 1, 0)
-        
-        # Drop unnecessary columns and split data into features and target
-        if target_column:
-            features = data.drop(target_column, axis=1)
+
+        features = pd.concat([
+            pd.get_dummies(data['OPERA'], prefix = 'OPERA'),
+            pd.get_dummies(data['TIPOVUELO'], prefix = 'TIPOVUELO'), 
+            pd.get_dummies(data['MES'], prefix = 'MES')], 
+            axis = 1
+        )
+
+        top_10_features = [
+            "OPERA_Latin American Wings", 
+            "MES_7",
+            "MES_10",
+            "OPERA_Grupo LATAM",
+            "MES_12",
+            "TIPOVUELO_I",
+            "MES_4",
+            "MES_11",
+            "OPERA_Sky Airline",
+            "OPERA_Copa Air"
+        ]
+
+        features = features[top_10_features]
+
+        if (target_column is not None):
             target = data[target_column]
-            return features, target
+            target = target.to_frame()
+            self.fit(features, target)
+            return (features, target)
         else:
+            target = data["delay"]
+            target = target.to_frame()
+            self.fit(features, target)
             return features
         
     def fit(
@@ -113,8 +133,14 @@ class DelayModel:
             features (pd.DataFrame): preprocessed data.
             target (pd.DataFrame): target.
         """
-        # Train the model using the features and target data
-        self._model = xgb.XGBClassifier(random_state=1, learning_rate=0.01)
+        # Data balance
+        cont = target.value_counts()
+        n_y0 = cont[0]
+        n_y1 = cont[1]
+        scale = n_y0 / n_y1
+
+        # Initialize and train the model using the features and target data balanced
+        self._model = xgb.XGBClassifier(random_state=1, learning_rate=0.01, scale_pos_weight=scale)
         self._model.fit(features, target)
         return
 
@@ -131,4 +157,11 @@ class DelayModel:
         Returns:
             (List[int]): predicted targets.
         """
-        return
+        # Use the trained model to make predictions
+        if self._model is not None:
+            predictions = self._model.predict(features)
+            predictions = predictions.tolist()
+            predictions = [1 if y_pred > 0.5 else 0 for y_pred in predictions]
+            return predictions
+        else:
+            raise ValueError("Model not fitted. Run fit method first.")
