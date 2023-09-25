@@ -1,10 +1,16 @@
 from fastapi import FastAPI, HTTPException
+from starlette.responses import RedirectResponse
 import pandas as pd
 from challenge import model
 
 app = FastAPI()
 delay_model = model.DelayModel()
 data = pd.read_csv(filepath_or_buffer="data/data.csv")
+
+@app.get("")
+def index():
+    response = RedirectResponse(url= '/docs')
+    return response
 
 @app.get("/health", status_code=200)
 async def get_health() -> dict:
