@@ -1,8 +1,22 @@
 import pandas as pd
 import numpy as np
 import xgboost as xgb
+from os.path import isfile
 from typing import Tuple, Union, List
 from datetime import datetime
+
+FEATURES_COLS = [
+        "OPERA_Latin American Wings", 
+        "MES_7",
+        "MES_10",
+        "OPERA_Grupo LATAM",
+        "MES_12",
+        "TIPOVUELO_I",
+        "MES_4",
+        "MES_11",
+        "OPERA_Sky Airline",
+        "OPERA_Copa Air"
+    ]
 
 class DelayModel:
 
@@ -95,22 +109,11 @@ class DelayModel:
             axis = 1
         )
 
-        top_10_features = [
-            "OPERA_Latin American Wings", 
-            "MES_7",
-            "MES_10",
-            "OPERA_Grupo LATAM",
-            "MES_12",
-            "TIPOVUELO_I",
-            "MES_4",
-            "MES_11",
-            "OPERA_Sky Airline",
-            "OPERA_Copa Air"
-        ]
+        if target_column is None:
+            return features[FEATURES_COLS]
 
-        features = features[top_10_features]
-
-        if (target_column is not None):
+        if (target_column != "ALL"):
+            features = features[FEATURES_COLS]
             target = data[target_column]
             target = target.to_frame()
             self.fit(features, target)
@@ -119,7 +122,7 @@ class DelayModel:
             target = data["delay"]
             target = target.to_frame()
             self.fit(features, target)
-            return features
+            return (features, target)
         
     def fit(
         self,
@@ -142,6 +145,8 @@ class DelayModel:
         # Initialize and train the model using the features and target data balanced
         self._model = xgb.XGBClassifier(random_state=1, learning_rate=0.01, scale_pos_weight=scale)
         self._model.fit(features, target)
+        if (not isfile("model.json")):
+            self._model.save_model("model.json")
         return
 
     def predict(
@@ -158,10 +163,13 @@ class DelayModel:
             (List[int]): predicted targets.
         """
         # Use the trained model to make predictions
-        if self._model is not None:
-            predictions = self._model.predict(features)
-            predictions = predictions.tolist()
-            predictions = [1 if y_pred > 0.5 else 0 for y_pred in predictions]
-            return predictions
-        else:
-            raise ValueError("Model not fitted. Run fit method first.")
+        if self._model is None:
+            if isfile("model.json"):
+                self._model = xgb.XGBClassifier()
+                self._model.load_model("model.json")
+            else:
+                raise ValueError("Model not fitted. Run the fit method first.")
+
+        predictions = self._model.predict(features)
+        predictions = [1 if y_pred > 0.5 else 0 for y_pred in predictions]
+        return predictions

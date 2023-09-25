@@ -24,3 +24,10 @@ tests/model/__pycache__/__init__.cpython-310.pyc
 tests/model/__pycache__/test_model.cpython-310-pytest-6.2.5.pyc
 .coverage
 challenge/exploration.ipynb
+tests/api/__pycache__/__init__.cpython-310.pyc
+tests/api/__pycache__/test_api.cpython-310-pytest-6.2.5.pyc
+.vscode/settings.json
+challenge/exploration.ipynb
+*.ipynb
+challenge/exploration.ipynb
+model.json
