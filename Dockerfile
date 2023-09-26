@@ -9,4 +9,4 @@ WORKDIR /challenge
 RUN python -m pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-CMD ["uvicorn", "api:app", "--reload"]
+CMD ["uvicorn", "--app-dir", "challenge", "api:app", "--reload"]
